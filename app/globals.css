@@ -1,26 +1,86 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Dark Athletic Theme */
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --surface: #161616;
+  --border: #2a2a2a;
+  --muted: #737373;
+  
+  /* Accent Colors */
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --success: #22c55e;
+  --warning: #eab308;
+  
+  /* Workout Type Colors */
+  --type-hills: #ef4444;
+  --type-intervals: #8b5cf6;
+  --type-mp: #3b82f6;
+  --type-tempo: #06b6d4;
+  --type-easy: #6b7280;
+  --type-long: #f97316;
+  --type-rest: #404040;
+  --type-race: #fbbf24;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-type-hills: var(--type-hills);
+  --color-type-intervals: var(--type-intervals);
+  --color-type-mp: var(--type-mp);
+  --color-type-tempo: var(--type-tempo);
+  --color-type-easy: var(--type-easy);
+  --color-type-long: var(--type-long);
+  --color-type-rest: var(--type-rest);
+  --color-type-race: var(--type-race);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

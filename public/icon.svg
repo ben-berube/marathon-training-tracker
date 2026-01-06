@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#0a0a0a"/>
+  <g fill="none" stroke="#f97316" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Running figure simplified -->
+    <circle cx="256" cy="140" r="40"/>
+    <path d="M200 240 L256 200 L312 240"/>
+    <path d="M256 200 L256 300"/>
+    <path d="M256 300 L200 380"/>
+    <path d="M256 300 L312 380"/>
+    <path d="M200 260 L170 300"/>
+    <path d="M312 260 L342 300"/>
+  </g>
+  <!-- Distance indicator -->
+  <text x="256" y="450" text-anchor="middle" fill="#fafafa" font-family="system-ui" font-size="48" font-weight="bold">26.2</text>
+</svg>
