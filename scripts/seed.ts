@@ -1,19 +1,23 @@
 import { config } from "dotenv";
-// Load .env.local for local development
 config({ path: ".env.local" });
 
 import { sql } from "@vercel/postgres";
-import { drizzle } from "drizzle-orm/vercel-postgres";
-import { workouts } from "../lib/schema";
-import { planData } from "../lib/plan-data";
 
 async function seed() {
-  console.log("🏃 Starting database seed...");
+  console.log("Setting up database tables...");
 
-  const db = drizzle(sql);
+  await sql`
+    CREATE TABLE IF NOT EXISTS race_config (
+      id SERIAL PRIMARY KEY,
+      race_name VARCHAR(100) NOT NULL,
+      race_location VARCHAR(100) NOT NULL,
+      race_date DATE NOT NULL,
+      distance VARCHAR(20) NOT NULL,
+      total_weeks INT NOT NULL DEFAULT 8,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
 
-  // Create tables if they don't exist
-  console.log("📦 Creating tables...");
   await sql`
     CREATE TABLE IF NOT EXISTS workouts (
       id SERIAL PRIMARY KEY,
@@ -43,38 +47,13 @@ async function seed() {
     )
   `;
 
-  // Clear existing workout data (but preserve completions via foreign key)
-  console.log("🧹 Clearing existing workouts...");
-  await sql`DELETE FROM completions`;
-  await sql`DELETE FROM workouts`;
-
-  // Insert all workout data
-  console.log(`📝 Inserting ${planData.length} workouts...`);
-
-  for (const workout of planData) {
-    await db.insert(workouts).values({
-      date: workout.date,
-      dayOfWeek: workout.day,
-      weekNumber: workout.weekNumber,
-      milesPlanned: String(workout.milesPlanned),
-      workoutType: workout.type,
-      workoutDescription: workout.workout,
-      isTaperWeek: workout.isTaperWeek,
-      isLongRun: workout.isLongRun,
-      isRaceDay: workout.isRaceDay,
-    });
-  }
-
-  console.log("✅ Seed completed successfully!");
-  console.log(`   Total workouts: ${planData.length}`);
-  console.log(
-    `   Total planned miles: ${planData.reduce((sum, w) => sum + w.milesPlanned, 0).toFixed(1)}`
-  );
+  console.log("Tables created successfully!");
+  console.log("Visit the app to set up your race through the setup page.");
 
   process.exit(0);
 }
 
 seed().catch((error) => {
-  console.error("❌ Seed failed:", error);
+  console.error("Seed failed:", error);
   process.exit(1);
 });

@@ -6,13 +6,11 @@ import { WorkoutCard } from "@/components/WorkoutCard";
 import { CompletionModal, CompletionData } from "@/components/CompletionModal";
 import { WeekProgress } from "@/components/WeekProgress";
 import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
-import { planData, getWorkoutsByWeek } from "@/lib/plan-data";
 
-// Helper to get local date string in YYYY-MM-DD format (avoids UTC timezone issues)
 function getLocalDateString(date: Date = new Date()): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -45,66 +43,50 @@ export default function WeekPage() {
   const params = useParams();
   const router = useRouter();
   const weekNum = parseInt(params.num as string);
+  const [totalWeeks, setTotalWeeks] = useState(8);
 
   const [workouts, setWorkouts] = useState<WorkoutWithCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutWithCompletion | null>(null);
-  const [completions, setCompletions] = useState<Map<string, CompletionData>>(new Map());
+  const [selectedWorkout, setSelectedWorkout] =
+    useState<WorkoutWithCompletion | null>(null);
+  const [completions, setCompletions] = useState<
+    Map<string, CompletionData>
+  >(new Map());
 
   const today = getLocalDateString();
 
-  // Sort workouts by date
-  const sortByDate = (workouts: WorkoutWithCompletion[]) => {
-    return [...workouts].sort((a, b) => 
-      new Date(a.workout.date).getTime() - new Date(b.workout.date).getTime()
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const res = await fetch("/api/race-config");
+        if (res.ok) {
+          const config = await res.json();
+          setTotalWeeks(config.totalWeeks);
+        }
+      } catch {
+        // default to 8
+      }
+    }
+    loadConfig();
+  }, []);
+
+  const sortByDate = (wkts: WorkoutWithCompletion[]) => {
+    return [...wkts].sort(
+      (a, b) =>
+        new Date(a.workout.date).getTime() - new Date(b.workout.date).getTime()
     );
   };
 
-  // Load workouts
   const loadWorkouts = useCallback(async () => {
     try {
       const res = await fetch(`/api/workouts?week=${weekNum}`);
       if (res.ok) {
         const data = await res.json();
         setWorkouts(sortByDate(data));
-      } else {
-        // Use local data
-        const weekWorkouts = getWorkoutsByWeek(weekNum).map((w, i) => ({
-          workout: {
-            id: (weekNum - 1) * 7 + i + 1,
-            date: w.date,
-            dayOfWeek: w.day,
-            weekNumber: w.weekNumber,
-            milesPlanned: w.milesPlanned.toString(),
-            workoutType: w.type,
-            workoutDescription: w.workout,
-            isTaperWeek: w.isTaperWeek,
-            isLongRun: w.isLongRun,
-            isRaceDay: w.isRaceDay,
-          },
-          completion: null,
-        }));
-        setWorkouts(sortByDate(weekWorkouts));
       }
     } catch {
-      // Use local data
-      const weekWorkouts = getWorkoutsByWeek(weekNum).map((w, i) => ({
-        workout: {
-          id: (weekNum - 1) * 7 + i + 1,
-          date: w.date,
-          dayOfWeek: w.day,
-          weekNumber: w.weekNumber,
-          milesPlanned: w.milesPlanned.toString(),
-          workoutType: w.type,
-          workoutDescription: w.workout,
-          isTaperWeek: w.isTaperWeek,
-          isLongRun: w.isLongRun,
-          isRaceDay: w.isRaceDay,
-        },
-        completion: null,
-      }));
-      setWorkouts(sortByDate(weekWorkouts));
+      // ignore
     } finally {
       setLoading(false);
     }
@@ -114,7 +96,6 @@ export default function WeekPage() {
     loadWorkouts();
   }, [loadWorkouts]);
 
-  // Calculate week stats
   const weekPlannedMiles = workouts.reduce(
     (sum, w) => sum + parseFloat(w.workout.milesPlanned),
     0
@@ -131,12 +112,13 @@ export default function WeekPage() {
     (w) => w.completion !== null || completions.has(w.workout.date)
   ).length;
 
-  const isTaperWeek = weekNum >= 6;
-  const weekLabel = isTaperWeek
-    ? weekNum === 8
-      ? "Race Week"
-      : "Taper Week"
-    : `Week ${weekNum}`;
+  const isTaperWeek = workouts.some((w) => w.workout.isTaperWeek);
+  const isRaceWeek = workouts.some((w) => w.workout.isRaceDay);
+  const weekLabel = isRaceWeek
+    ? "Race Week"
+    : isTaperWeek
+      ? "Taper Week"
+      : `Week ${weekNum}`;
 
   const handleOpenModal = (workout: WorkoutWithCompletion) => {
     setSelectedWorkout(workout);
@@ -150,10 +132,7 @@ export default function WeekPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-
-      if (res.ok) {
-        loadWorkouts();
-      }
+      if (res.ok) loadWorkouts();
     } catch {
       if (selectedWorkout) {
         const newCompletions = new Map(completions);
@@ -166,7 +145,6 @@ export default function WeekPage() {
 
   const handleDeleteCompletion = async () => {
     if (!selectedWorkout) return;
-
     try {
       await fetch(`/api/completions?workoutId=${selectedWorkout.workout.id}`, {
         method: "DELETE",
@@ -180,7 +158,6 @@ export default function WeekPage() {
     setModalOpen(false);
   };
 
-  // Date range for the week
   const weekStart =
     workouts.length > 0
       ? new Date(workouts[0].workout.date + "T00:00:00").toLocaleDateString(
@@ -214,17 +191,17 @@ export default function WeekPage() {
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
-
         <div className="text-center">
           <h1 className="text-xl font-bold">{weekLabel}</h1>
           <p className="text-sm text-muted">
-            {weekStart} — {weekEnd}
+            {weekStart} &mdash; {weekEnd}
           </p>
         </div>
-
         <button
-          onClick={() => router.push(`/week/${Math.min(8, weekNum + 1)}`)}
-          disabled={weekNum >= 8}
+          onClick={() =>
+            router.push(`/week/${Math.min(totalWeeks, weekNum + 1)}`)
+          }
+          disabled={weekNum >= totalWeeks}
           className="p-2 hover:bg-surface rounded-lg transition-colors disabled:opacity-30"
         >
           <ChevronRight className="w-6 h-6" />
@@ -274,7 +251,8 @@ export default function WeekPage() {
             actualMiles={
               workout.completion?.actualMiles
                 ? parseFloat(workout.completion.actualMiles)
-                : completions.get(workout.workout.date)?.actualMiles || undefined
+                : completions.get(workout.workout.date)?.actualMiles ||
+                  undefined
             }
             onClick={() => handleOpenModal(workout)}
           />
@@ -287,7 +265,9 @@ export default function WeekPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-muted">Planned</p>
-            <p className="font-mono text-2xl font-bold">{weekPlannedMiles.toFixed(1)} mi</p>
+            <p className="font-mono text-2xl font-bold">
+              {weekPlannedMiles.toFixed(1)} mi
+            </p>
           </div>
           <div>
             <p className="text-sm text-muted">Actual</p>
@@ -324,33 +304,37 @@ export default function WeekPage() {
                   actualMiles: selectedWorkout.completion.actualMiles
                     ? parseFloat(selectedWorkout.completion.actualMiles)
                     : null,
-                  durationMinutes: selectedWorkout.completion.durationMinutes,
+                  durationMinutes:
+                    selectedWorkout.completion.durationMinutes,
                   rpe: selectedWorkout.completion.rpe,
                   notes: selectedWorkout.completion.notes,
                   fuelingCarbsPerHour:
                     selectedWorkout.completion.fuelingCarbsPerHour,
-                  fuelingHydration: selectedWorkout.completion.fuelingHydration,
+                  fuelingHydration:
+                    selectedWorkout.completion.fuelingHydration,
                 }
               : completions.has(selectedWorkout.workout.date)
-              ? {
-                  actualMiles:
-                    completions.get(selectedWorkout.workout.date)?.actualMiles ||
-                    null,
-                  durationMinutes:
-                    completions.get(selectedWorkout.workout.date)
-                      ?.durationMinutes || null,
-                  rpe:
-                    completions.get(selectedWorkout.workout.date)?.rpe || null,
-                  notes:
-                    completions.get(selectedWorkout.workout.date)?.notes || null,
-                  fuelingCarbsPerHour:
-                    completions.get(selectedWorkout.workout.date)
-                      ?.fuelingCarbsPerHour || null,
-                  fuelingHydration:
-                    completions.get(selectedWorkout.workout.date)
-                      ?.fuelingHydration || null,
-                }
-              : undefined
+                ? {
+                    actualMiles:
+                      completions.get(selectedWorkout.workout.date)
+                        ?.actualMiles || null,
+                    durationMinutes:
+                      completions.get(selectedWorkout.workout.date)
+                        ?.durationMinutes || null,
+                    rpe:
+                      completions.get(selectedWorkout.workout.date)?.rpe ||
+                      null,
+                    notes:
+                      completions.get(selectedWorkout.workout.date)?.notes ||
+                      null,
+                    fuelingCarbsPerHour:
+                      completions.get(selectedWorkout.workout.date)
+                        ?.fuelingCarbsPerHour || null,
+                    fuelingHydration:
+                      completions.get(selectedWorkout.workout.date)
+                        ?.fuelingHydration || null,
+                  }
+                : undefined
           }
         />
       )}

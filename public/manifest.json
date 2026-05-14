@@ -1,7 +1,7 @@
 {
-  "name": "Napa Valley Marathon Tracker",
-  "short_name": "Napa Marathon",
-  "description": "Track your Napa Valley Marathon training - 8 weeks to race day",
+  "name": "Race Training Tracker",
+  "short_name": "Race Tracker",
+  "description": "Track your marathon or half marathon training plan",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

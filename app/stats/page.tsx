@@ -1,8 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Trophy, Flame, TrendingUp, Target, Footprints } from "lucide-react";
-import { planData, getTotalPlannedMiles, getWeeklyPlannedMiles } from "@/lib/plan-data";
+import { getRaceDistance } from "@/lib/plan-templates";
+
+interface RaceConfig {
+  raceName: string;
+  raceLocation: string;
+  raceDate: string;
+  distance: string;
+  totalWeeks: number;
+}
 
 interface WeeklyStat {
   week: number;
@@ -31,90 +40,37 @@ interface StatsData {
 }
 
 export default function StatsPage() {
+  const router = useRouter();
+  const [raceConfig, setRaceConfig] = useState<RaceConfig | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadStats = async () => {
+    async function load() {
       try {
-        const res = await fetch("/api/stats");
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        } else {
-          // Use local mock data
-          const weeklyStats: WeeklyStat[] = [];
-          for (let week = 1; week <= 8; week++) {
-            weeklyStats.push({
-              week,
-              plannedMiles: getWeeklyPlannedMiles(week),
-              actualMiles: 0,
-              workoutsPlanned: 7,
-              workoutsCompleted: 0,
-              isTaperWeek: week >= 6,
-            });
-          }
+        const configRes = await fetch("/api/race-config");
+        if (configRes.status === 404) {
+          router.push("/setup");
+          return;
+        }
+        if (configRes.ok) {
+          setRaceConfig(await configRes.json());
+        }
 
-          const longRuns = planData
-            .filter((w) => w.isLongRun || w.isRaceDay)
-            .map((w) => ({
-              date: w.date,
-              plannedMiles: w.milesPlanned,
-              actualMiles: null,
-              completed: false,
-            }));
-
-          setStats({
-            totalPlannedMiles: getTotalPlannedMiles(),
-            totalActualMiles: 0,
-            workoutsCompleted: 0,
-            workoutsTotal: 0,
-            currentStreak: 0,
-            weeklyStats,
-            longRuns,
-          });
+        const statsRes = await fetch("/api/stats");
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
         }
       } catch {
-        // Use local mock data on error
-        const weeklyStats: WeeklyStat[] = [];
-        for (let week = 1; week <= 8; week++) {
-          weeklyStats.push({
-            week,
-            plannedMiles: getWeeklyPlannedMiles(week),
-            actualMiles: 0,
-            workoutsPlanned: 7,
-            workoutsCompleted: 0,
-            isTaperWeek: week >= 6,
-          });
-        }
-
-        const longRuns = planData
-          .filter((w) => w.isLongRun || w.isRaceDay)
-          .map((w) => ({
-            date: w.date,
-            plannedMiles: w.milesPlanned,
-            actualMiles: null,
-            completed: false,
-          }));
-
-        setStats({
-          totalPlannedMiles: getTotalPlannedMiles(),
-          totalActualMiles: 0,
-          workoutsCompleted: 0,
-          workoutsTotal: 0,
-          currentStreak: 0,
-          weeklyStats,
-          longRuns,
-        });
+        // ignore
       } finally {
         setLoading(false);
       }
-    };
+    }
+    load();
+  }, [router]);
 
-    loadStats();
-  }, []);
-
-  if (loading || !stats) {
+  if (loading || !stats || !raceConfig) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-muted">Loading...</div>
@@ -122,19 +78,25 @@ export default function StatsPage() {
     );
   }
 
+  const raceDistance = getRaceDistance(raceConfig.distance);
   const completionPercent =
     stats.totalPlannedMiles > 0
       ? (stats.totalActualMiles / stats.totalPlannedMiles) * 100
       : 0;
-
-  const maxWeekMiles = Math.max(...stats.weeklyStats.map((w) => w.plannedMiles));
+  const maxWeekMiles = Math.max(
+    ...stats.weeklyStats.map((w) => w.plannedMiles)
+  );
+  const raceDateFormatted = new Date(
+    raceConfig.raceDate + "T00:00:00"
+  ).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
     <div className="min-h-screen p-4 space-y-6">
-      {/* Header */}
       <header>
         <h1 className="text-2xl font-bold">Training Stats</h1>
-        <p className="text-sm text-muted">8-Week Marathon Preparation</p>
+        <p className="text-sm text-muted">
+          {raceConfig.totalWeeks}-Week {raceConfig.distance === "half" ? "Half Marathon" : "Marathon"} Preparation
+        </p>
       </header>
 
       {/* Key Stats Cards */}
@@ -142,7 +104,9 @@ export default function StatsPage() {
         <div className="bg-surface rounded-xl border border-border p-4">
           <div className="flex items-center gap-2 text-muted mb-1">
             <Footprints className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-wider">Total Miles</span>
+            <span className="text-xs uppercase tracking-wider">
+              Total Miles
+            </span>
           </div>
           <div className="flex items-baseline gap-1">
             <span className="font-mono text-3xl font-bold text-success">
@@ -173,7 +137,10 @@ export default function StatsPage() {
           </div>
           <p className="text-xs text-muted mt-2">
             {stats.workoutsTotal > 0
-              ? ((stats.workoutsCompleted / stats.workoutsTotal) * 100).toFixed(0)
+              ? (
+                  (stats.workoutsCompleted / stats.workoutsTotal) *
+                  100
+                ).toFixed(0)
               : 0}
             % completion rate
           </p>
@@ -198,8 +165,10 @@ export default function StatsPage() {
             <Trophy className="w-4 h-4" />
             <span className="text-xs uppercase tracking-wider">Race Day</span>
           </div>
-          <p className="font-mono text-xl font-bold">Mar 1</p>
-          <p className="text-xs text-muted mt-2">Napa Valley Marathon 2026</p>
+          <p className="font-mono text-xl font-bold">{raceDateFormatted}</p>
+          <p className="text-xs text-muted mt-2">
+            {raceConfig.raceName}
+          </p>
         </div>
       </div>
 
@@ -209,12 +178,10 @@ export default function StatsPage() {
           <TrendingUp className="w-4 h-4 text-accent" />
           Weekly Mileage
         </h2>
-
         <div className="space-y-3">
           {stats.weeklyStats.map((week) => {
             const plannedPercent = (week.plannedMiles / maxWeekMiles) * 100;
             const actualPercent = (week.actualMiles / maxWeekMiles) * 100;
-
             return (
               <div key={week.week} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
@@ -223,17 +190,20 @@ export default function StatsPage() {
                     {week.isTaperWeek && " (Taper)"}
                   </span>
                   <span className="font-mono">
-                    <span className="text-success">{week.actualMiles.toFixed(0)}</span>
-                    <span className="text-muted"> / {week.plannedMiles.toFixed(0)} mi</span>
+                    <span className="text-success">
+                      {week.actualMiles.toFixed(0)}
+                    </span>
+                    <span className="text-muted">
+                      {" "}
+                      / {week.plannedMiles.toFixed(0)} mi
+                    </span>
                   </span>
                 </div>
                 <div className="relative h-4 bg-background rounded-full overflow-hidden">
-                  {/* Planned bar (background) */}
                   <div
                     className="absolute inset-y-0 left-0 bg-muted/30 rounded-full"
                     style={{ width: `${plannedPercent}%` }}
                   />
-                  {/* Actual bar (foreground) */}
                   <div
                     className="absolute inset-y-0 left-0 bg-accent rounded-full transition-all"
                     style={{ width: `${actualPercent}%` }}
@@ -251,34 +221,32 @@ export default function StatsPage() {
           <Footprints className="w-4 h-4 text-type-long" />
           Long Run Progression
         </h2>
-
         <div className="flex items-end gap-2 h-32">
-          {stats.longRuns.map((run, i) => {
-            const heightPercent = (run.plannedMiles / 26.2) * 100;
+          {stats.longRuns.map((run) => {
+            const heightPercent = (run.plannedMiles / raceDistance) * 100;
             const actualHeightPercent = run.actualMiles
-              ? (run.actualMiles / 26.2) * 100
+              ? (run.actualMiles / raceDistance) * 100
               : 0;
             const date = new Date(run.date + "T00:00:00").toLocaleDateString(
               "en-US",
               { month: "short", day: "numeric" }
             );
-
             return (
               <div
                 key={run.date}
                 className="flex-1 flex flex-col items-center gap-1"
               >
                 <div className="relative w-full flex-1 flex items-end">
-                  {/* Planned height */}
                   <div
                     className="w-full bg-muted/30 rounded-t relative"
                     style={{ height: `${heightPercent}%` }}
                   >
-                    {/* Actual height overlay */}
                     {run.completed && (
                       <div
                         className="absolute bottom-0 left-0 right-0 bg-success rounded-t"
-                        style={{ height: `${(actualHeightPercent / heightPercent) * 100}%` }}
+                        style={{
+                          height: `${(actualHeightPercent / heightPercent) * 100}%`,
+                        }}
                       />
                     )}
                   </div>
@@ -293,7 +261,6 @@ export default function StatsPage() {
             );
           })}
         </div>
-
         <div className="flex items-center justify-center gap-4 mt-4 text-xs">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-muted/30 rounded" />
@@ -311,20 +278,20 @@ export default function StatsPage() {
         <h2 className="font-medium mb-3">Training Tips</h2>
         <ul className="space-y-2 text-sm text-muted">
           <li className="flex items-start gap-2">
-            <span className="text-accent">•</span>
-            Easy runs should be truly easy — most miles at conversational pace
+            <span className="text-accent">&#8226;</span>
+            Easy runs should be truly easy -- most miles at conversational pace
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-accent">•</span>
+            <span className="text-accent">&#8226;</span>
             For long runs 90+ min: aim for 30-60g carbs/hour
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-accent">•</span>
-            Taper isn't losing fitness — it's shedding fatigue
+            <span className="text-accent">&#8226;</span>
+            Taper isn't losing fitness -- it's shedding fatigue
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-accent">•</span>
-            Race strategy: conservative through mile 18, then press if you feel good
+            <span className="text-accent">&#8226;</span>
+            Race strategy: start conservative, finish strong
           </li>
         </ul>
       </div>

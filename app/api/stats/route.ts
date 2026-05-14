@@ -1,11 +1,17 @@
 import { db } from "@/lib/db";
-import { workouts, completions } from "@/lib/schema";
-import { eq, sql, lte } from "drizzle-orm";
+import { workouts, completions, raceConfig } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    // Get all workouts with completions
+    // Fetch race config for dynamic week count and taper start
+    const configs = await db.select().from(raceConfig).limit(1);
+    const config = configs[0];
+    const totalWeeks = config?.totalWeeks || 8;
+    // Taper starts at roughly 75% through the plan
+    const taperStart = Math.ceil(totalWeeks * 0.75) + 1;
+
     const allWorkouts = await db
       .select({
         workout: workouts,
@@ -15,23 +21,32 @@ export async function GET() {
       .leftJoin(completions, eq(workouts.id, completions.workoutId))
       .orderBy(workouts.date);
 
-    // Calculate stats
     const today = new Date().toISOString().split("T")[0];
     const pastWorkouts = allWorkouts.filter((w) => w.workout.date <= today);
-    const completedWorkouts = pastWorkouts.filter((w) => w.completion !== null);
+    const completedWorkouts = pastWorkouts.filter(
+      (w) => w.completion !== null
+    );
 
-    // Weekly stats
+    // Weekly stats -- dynamic week count
     const weeklyStats = [];
-    for (let week = 1; week <= 8; week++) {
-      const weekWorkouts = allWorkouts.filter((w) => w.workout.weekNumber === week);
-      const weekCompleted = weekWorkouts.filter((w) => w.completion !== null);
+    for (let week = 1; week <= totalWeeks; week++) {
+      const weekWorkouts = allWorkouts.filter(
+        (w) => w.workout.weekNumber === week
+      );
+      const weekCompleted = weekWorkouts.filter(
+        (w) => w.completion !== null
+      );
 
       const plannedMiles = weekWorkouts.reduce(
         (sum, w) => sum + parseFloat(w.workout.milesPlanned),
         0
       );
       const actualMiles = weekCompleted.reduce(
-        (sum, w) => sum + (w.completion?.actualMiles ? parseFloat(w.completion.actualMiles) : 0),
+        (sum, w) =>
+          sum +
+          (w.completion?.actualMiles
+            ? parseFloat(w.completion.actualMiles)
+            : 0),
         0
       );
 
@@ -41,18 +56,19 @@ export async function GET() {
         actualMiles,
         workoutsPlanned: weekWorkouts.length,
         workoutsCompleted: weekCompleted.length,
-        isTaperWeek: week >= 6,
+        isTaperWeek: week >= taperStart,
       });
     }
 
     // Calculate streak
     let currentStreak = 0;
     const sortedPast = [...pastWorkouts].sort(
-      (a, b) => new Date(b.workout.date).getTime() - new Date(a.workout.date).getTime()
+      (a, b) =>
+        new Date(b.workout.date).getTime() -
+        new Date(a.workout.date).getTime()
     );
 
     for (const workout of sortedPast) {
-      // Skip rest days for streak calculation
       if (
         workout.workout.workoutType === "Rest" ||
         workout.workout.workoutType === "Rest/XT"
@@ -66,17 +82,19 @@ export async function GET() {
       }
     }
 
-    // Total stats
     const totalPlannedMiles = allWorkouts.reduce(
       (sum, w) => sum + parseFloat(w.workout.milesPlanned),
       0
     );
     const totalActualMiles = completedWorkouts.reduce(
-      (sum, w) => sum + (w.completion?.actualMiles ? parseFloat(w.completion.actualMiles) : 0),
+      (sum, w) =>
+        sum +
+        (w.completion?.actualMiles
+          ? parseFloat(w.completion.actualMiles)
+          : 0),
       0
     );
 
-    // Long run progression
     const longRuns = allWorkouts
       .filter((w) => w.workout.isLongRun || w.workout.isRaceDay)
       .map((w) => ({
@@ -99,6 +117,9 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Error fetching stats:", error);
-    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch stats" },
+      { status: 500 }
+    );
   }
 }

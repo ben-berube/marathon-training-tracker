@@ -14,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Napa Valley Marathon Tracker",
-  description: "Track your Napa Valley Marathon training - Jan 5 to Mar 1, 2026",
+  title: "Race Training Tracker",
+  description: "Track your marathon or half marathon training plan",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Napa Marathon",
+    title: "Race Tracker",
   },
 };
 

@@ -11,6 +11,19 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+export const raceConfig = pgTable("race_config", {
+  id: serial("id").primaryKey(),
+  raceName: varchar("race_name", { length: 100 }).notNull(),
+  raceLocation: varchar("race_location", { length: 100 }).notNull(),
+  raceDate: date("race_date").notNull(),
+  distance: varchar("distance", { length: 20 }).notNull(),
+  totalWeeks: integer("total_weeks").notNull().default(8),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type RaceConfig = typeof raceConfig.$inferSelect;
+export type NewRaceConfig = typeof raceConfig.$inferInsert;
+
 export const workouts = pgTable("workouts", {
   id: serial("id").primaryKey(),
   date: date("date").notNull().unique(),
