@@ -52,12 +52,20 @@ export default function CalendarPage() {
 
   const today = getLocalDateString();
 
+  useEffect(() => {
+    const configured = localStorage.getItem("raceConfigured");
+    if (!configured) {
+      router.replace("/setup");
+    }
+  }, [router]);
+
   // Load workouts + set initial month to the plan's start
   const loadWorkouts = useCallback(async () => {
     try {
       const configRes = await fetch("/api/race-config");
       if (configRes.status === 404) {
-        router.push("/setup");
+        localStorage.removeItem("raceConfigured");
+        router.replace("/setup");
         return;
       }
 

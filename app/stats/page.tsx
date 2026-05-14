@@ -46,11 +46,18 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const configured = localStorage.getItem("raceConfigured");
+    if (!configured) {
+      router.replace("/setup");
+      return;
+    }
+
     async function load() {
       try {
         const configRes = await fetch("/api/race-config");
         if (configRes.status === 404) {
-          router.push("/setup");
+          localStorage.removeItem("raceConfigured");
+          router.replace("/setup");
           return;
         }
         if (configRes.ok) {

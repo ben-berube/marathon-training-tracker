@@ -35,6 +35,7 @@ export default function SetupPage() {
         throw new Error(data.error || "Setup failed");
       }
 
+      localStorage.setItem("raceConfigured", "true");
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

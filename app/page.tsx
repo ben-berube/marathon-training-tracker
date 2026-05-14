@@ -77,13 +77,20 @@ export default function HomePage() {
 
   const today = getLocalDateString();
 
-  // Load race config first
+  // Load race config -- check localStorage first to avoid cold-start delay
   useEffect(() => {
+    const configured = localStorage.getItem("raceConfigured");
+    if (!configured) {
+      router.replace("/setup");
+      return;
+    }
+
     async function loadConfig() {
       try {
         const res = await fetch("/api/race-config");
         if (res.status === 404) {
-          router.push("/setup");
+          localStorage.removeItem("raceConfigured");
+          router.replace("/setup");
           return;
         }
         if (res.ok) {
