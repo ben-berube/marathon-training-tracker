@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Calendar, Trophy, ChevronRight } from "lucide-react";
+import { MapPin, Calendar, Trophy, ChevronRight, RotateCcw } from "lucide-react";
 import { getRaceDistance } from "@/lib/plan-templates";
 import { getPlanStartDate } from "@/lib/generate-plan";
+
+interface ExistingConfig {
+  raceName: string;
+  raceLocation: string;
+  raceDate: string;
+  distance: string;
+}
 
 export default function SetupPage() {
   const router = useRouter();
@@ -13,7 +20,40 @@ export default function SetupPage() {
   const [raceDate, setRaceDate] = useState("");
   const [distance, setDistance] = useState<"full" | "half">("full");
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState("");
+  const [existingConfig, setExistingConfig] = useState<ExistingConfig | null>(null);
+
+  useEffect(() => {
+    async function checkExisting() {
+      try {
+        const res = await fetch("/api/race-config");
+        if (res.ok) {
+          setExistingConfig(await res.json());
+        }
+      } catch {
+        // no existing config
+      }
+    }
+    checkExisting();
+  }, []);
+
+  const handleReset = async () => {
+    setResetting(true);
+    try {
+      await fetch("/api/setup", { method: "DELETE" });
+      localStorage.removeItem("raceConfigured");
+      setExistingConfig(null);
+      setRaceName("");
+      setRaceLocation("");
+      setRaceDate("");
+      setDistance("full");
+    } catch {
+      setError("Failed to reset");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const planStart = raceDate ? getPlanStartDate(raceDate) : null;
   const raceDistance = getRaceDistance(distance);
@@ -59,6 +99,33 @@ export default function SetupPage() {
             Set up your race and get a personalized 8-week training plan.
           </p>
         </div>
+
+        {/* Existing config banner */}
+        {existingConfig && (
+          <div className="bg-surface rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Current Plan</p>
+              <button
+                onClick={handleReset}
+                disabled={resetting}
+                className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${resetting ? "animate-spin" : ""}`} />
+                {resetting ? "Resetting..." : "Reset & Start Over"}
+              </button>
+            </div>
+            <div className="text-sm text-muted space-y-1">
+              <p>{existingConfig.raceName} — {existingConfig.raceLocation}</p>
+              <p>
+                {new Date(existingConfig.raceDate + "T00:00:00").toLocaleDateString("en-US", {
+                  month: "long", day: "numeric", year: "numeric",
+                })}
+                {" · "}
+                {existingConfig.distance === "half" ? "Half Marathon" : "Full Marathon"}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">

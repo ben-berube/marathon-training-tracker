@@ -6,7 +6,7 @@ import { TodayHero } from "@/components/TodayHero";
 import { WorkoutCard } from "@/components/WorkoutCard";
 import { CompletionModal, CompletionData } from "@/components/CompletionModal";
 import { WeekProgress } from "@/components/WeekProgress";
-import { Trophy, ChevronRight } from "lucide-react";
+import { Trophy, ChevronRight, Settings } from "lucide-react";
 import Link from "next/link";
 
 function getLocalDateString(date: Date = new Date()): string {
@@ -266,12 +266,20 @@ export default function HomePage() {
             {raceConfig.totalWeeks}-Week Training Plan
           </p>
         </div>
-        <div className="text-right">
-          <div className="flex items-center gap-1 text-type-race">
-            <Trophy className="w-4 h-4" />
-            <span className="font-mono font-bold">{daysUntilRace}</span>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="flex items-center gap-1 text-type-race">
+              <Trophy className="w-4 h-4" />
+              <span className="font-mono font-bold">{daysUntilRace}</span>
+            </div>
+            <p className="text-xs text-muted">days to race</p>
           </div>
-          <p className="text-xs text-muted">days to race</p>
+          <Link
+            href="/setup"
+            className="p-2 text-muted hover:text-foreground transition-colors"
+          >
+            <Settings className="w-5 h-5" />
+          </Link>
         </div>
       </header>
 
